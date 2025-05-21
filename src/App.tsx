@@ -195,6 +195,7 @@ const App: React.FC = () => {
                 color: "yellow",
                 padding: "16px",
                 borderRadius: "8px",
+                maxWidth: "240px",
               }}
             >
               <strong style={{ fontSize: "24px" }}>Prediction:</strong>
@@ -225,6 +226,25 @@ const App: React.FC = () => {
                   <strong style={{ color: "greenyellow" }}>
                     This mushroom is likely edible!
                   </strong>
+                  <hr style={{ color: "yellow" }} />
+                  <div>
+                    <div
+                      style={{
+                        color: "orange",
+                        marginTop: "8px",
+                        fontWeight: "bold",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <p style={{ fontSize: "24px", padding: 0, margin: 0 }}>
+                        ⚠️
+                      </p>
+                      Do <u>NOT</u> use this app to identify real mushrooms!
+                      <br />
+                      Eating wild mushrooms can be deadly. Always consult an
+                      expert.
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
