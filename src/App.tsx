@@ -9,13 +9,14 @@ import {
 } from "./types";
 import type { NeuralNetwork as NeuralNetworkType } from "brain.js";
 import type { INeuralNetworkData } from "brain.js/dist/neural-network";
+import { Toaster, toast } from "react-hot-toast";
 
 const App: React.FC = () => {
   const [net, setNet] = useState<NeuralNetworkType<
     INeuralNetworkData,
     INeuralNetworkData
   > | null>(null);
-  const [status, setStatus] = useState("Loading and training...");
+  const [status, setStatus] = useState("Loading and training model...");
   const [result, setResult] = useState<{
     edible?: number;
     poisonous?: number;
@@ -27,7 +28,7 @@ const App: React.FC = () => {
     "cap-surface": "s",
     "cap-color": "n",
     bruises: "t",
-    odor: "n",
+    odor: "c",
     "gill-attachment": "f",
     "gill-spacing": "c",
     "gill-size": "b",
@@ -64,15 +65,21 @@ const App: React.FC = () => {
         });
 
         setNet(neuralNet);
-        setStatus("Model trained.");
+        setStatus("Model trained successfully ✅");
       } catch (e) {
         console.error(e);
-        setStatus("Failed to load dataset.");
+        setStatus("Failed to load dataset ⛔");
       }
     }
 
     init();
   }, []);
+
+  useEffect(() => {
+    if (status) {
+      toast(status, { id: "status-toast" });
+    }
+  }, [status]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -94,87 +101,136 @@ const App: React.FC = () => {
     return result;
   };
 
-  const testSample = () => {
-    if (!net) return;
-    const prediction = net.run(translateSample(sample));
-    if (
-      typeof prediction === "object" &&
-      prediction !== null &&
-      "edible" in prediction &&
-      "poisonous" in prediction
-    ) {
-      setResult({
-        edible: prediction.edible,
-        poisonous: prediction.poisonous,
-      });
-    } else if (Array.isArray(prediction)) {
-      setResult({
-        edible: prediction[0],
-        poisonous: prediction[1],
-      });
-    } else {
-      setResult(null);
+  useEffect(() => {
+    if (net) {
+      const prediction = net.run(translateSample(sample));
+      if (
+        typeof prediction === "object" &&
+        prediction !== null &&
+        "edible" in prediction &&
+        "poisonous" in prediction
+      ) {
+        setResult({
+          edible: prediction.edible,
+          poisonous: prediction.poisonous,
+        });
+      } else if (Array.isArray(prediction)) {
+        setResult({
+          edible: prediction[0],
+          poisonous: prediction[1],
+        });
+      } else {
+        setResult(null);
+      }
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sample, net]);
 
   return (
-    <div style={{ padding: "2rem" }}>
-      <h1>🍄 Full Mushroom Classifier</h1>
-      <p>
-        This data set includes descriptions of hypothetical samples
-        corresponding to 23 species of gilled mushrooms in the Agaricus and
-        Lepiota Family (pp. 500-525). Each species is identified as definitely
-        edible, definitely poisonous, or of unknown edibility and not
-        recommended. This latter class was combined with the poisonous one. The
-        Guide clearly states that there is no simple rule for determining the
-        edibility of a mushroom; no rule like ``leaflets three, let it be'' for
-        Poisonous Oak and Ivy.
-      </p>
-      <p>{status}</p>
-
-      {net && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            testSample();
-          }}
-          style={{ marginBottom: "1rem" }}
-        >
-          {featureKeys.map((key) => (
-            <div key={key}>
-              <label>
-                {key}:{" "}
-                <select
-                  name={key}
-                  value={sample[key]}
-                  onChange={handleInputChange}
-                >
-                  {(
-                    featureOptions[key] as ReadonlyArray<{
-                      label: string;
-                      value: string;
-                    }>
-                  ).map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          ))}
-          <button type="submit">Test Sample</button>
-        </form>
-      )}
-
-      {result && (
-        <div>
-          <strong>Prediction:</strong>
-          <br />
-          Edible: {Math.round((result.edible || 0) * 100)}%<br />
-          Poisonous: {Math.round((result.poisonous || 0) * 100)}%
+    <div style={{ width: "100%", height: "100%" }}>
+      <Toaster position="bottom-right" />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "2rem",
+          textAlign: "center",
+          height: "100%",
+          margin: "0 auto",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ maxWidth: "50%" }}>
+          <h1>🍄 Mushroom Classifier 🍄</h1>
+          <p>
+            This is a simple neural network model to classify mushrooms as
+            edible or poisonous based on their features. The model is trained on
+            the{" "}
+            <a href="https://archive.ics.uci.edu/dataset/73/mushroom">
+              UCI Mushroom dataset
+            </a>{" "}
+            , which contains descriptions of 23 species of gilled mushrooms in
+            the Agaricus and Lepiota family. Each sample is labeled as edible or
+            poisonous (with unknown edibility grouped as poisonous).
+          </p>
         </div>
-      )}
+        <div style={{ display: "flex", flexDirection: "row", gap: "8px" }}>
+          {net && (
+            <form style={{ marginBottom: "1rem" }}>
+              {featureKeys.map((key) => (
+                <div key={key}>
+                  <label>
+                    {key}:{" "}
+                    <select
+                      name={key}
+                      value={sample[key]}
+                      onChange={handleInputChange}
+                    >
+                      {(
+                        featureOptions[key] as ReadonlyArray<{
+                          label: string;
+                          value: string;
+                        }>
+                      ).map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ))}
+            </form>
+          )}
+          {result && (
+            <div
+              style={{
+                position: "fixed",
+                bottom: "48px",
+                right: "48px",
+                border: "1px solid yellow",
+                color: "yellow",
+                padding: "16px",
+                borderRadius: "8px",
+              }}
+            >
+              <strong style={{ fontSize: "24px" }}>Prediction:</strong>
+              <hr style={{ color: "yellow" }} />
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ color: "greenyellow" }}>
+                  Edible: {Math.round((result.edible ?? 0) * 100)}%<br />
+                </span>
+                <span style={{ color: "red" }}>
+                  Poisonous: {Math.round((result.poisonous ?? 0) * 100)}%
+                </span>
+              </div>
+              <hr style={{ color: "yellow" }} />
+              {Math.round((result.poisonous ?? 0) * 100) > 10 ? (
+                <div>
+                  <strong style={{ color: "red" }}>
+                    Warning: This mushroom is likely poisonous!
+                  </strong>
+                </div>
+              ) : (
+                <div>
+                  <strong style={{ color: "greenyellow" }}>
+                    This mushroom is likely edible!
+                  </strong>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

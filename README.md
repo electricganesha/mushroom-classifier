@@ -1,4 +1,4 @@
-# 🍄 Mushroom Classifier
+# 🍄 Mushroom Classifier 🍄
 
 This project is an interactive web app for classifying mushrooms as edible or poisonous using a neural network trained on the classic UCI Mushroom Dataset. Built with React, TypeScript, and Vite, it allows you to explore how different mushroom features affect classification.
 
