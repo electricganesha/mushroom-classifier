@@ -1,87 +1,49 @@
-import React, { useEffect, useState } from "react";
-import { NeuralNetwork } from "brain.js";
-import { loadMushroomData } from "./utils/preprocess";
-import {
-  featureKeys,
-  featureOptions,
-  featureValueMap,
-  type EncodedSample,
-} from "./types";
-import type { NeuralNetwork as NeuralNetworkType } from "brain.js";
-import type { INeuralNetworkData } from "brain.js/dist/neural-network";
+import React, { useState, useEffect, Suspense } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import Header from "./components/Header";
 import Features from "./components/Features";
 import Prediction from "./components/Prediction";
+import { featureKeys, featureOptions, featureValueMap } from "./types";
+import { BrainModelContext } from "./hooks/BrainModelProvider";
 
-const App: React.FC = () => {
-  const [net, setNet] = useState<NeuralNetworkType<
-    INeuralNetworkData,
-    INeuralNetworkData
-  > | null>(null);
-  const [status, setStatus] = useState("Loading and training model...");
+const initialSample: { [K in keyof typeof featureOptions]: string } = {
+  "cap-shape": "x",
+  "cap-surface": "s",
+  "cap-color": "n",
+  bruises: "t",
+  odor: "c",
+  "gill-attachment": "f",
+  "gill-spacing": "c",
+  "gill-size": "b",
+  "gill-color": "k",
+  "stalk-shape": "e",
+  "stalk-root": "e",
+  "stalk-surface-above-ring": "s",
+  "stalk-surface-below-ring": "s",
+  "stalk-color-above-ring": "w",
+  "stalk-color-below-ring": "w",
+  "veil-type": "p",
+  "veil-color": "w",
+  "ring-number": "o",
+  "ring-type": "p",
+  "spore-print-color": "k",
+  population: "s",
+  habitat: "u",
+};
+
+const AppContent: React.FC = () => {
+  const [sample, setSample] = useState<typeof initialSample>(initialSample);
   const [result, setResult] = useState<{
     edible?: number;
     poisonous?: number;
   } | null>(null);
-
-  const initialSample: { [K in keyof typeof featureOptions]: string } = {
-    "cap-shape": "x",
-    "cap-surface": "s",
-    "cap-color": "n",
-    bruises: "t",
-    odor: "c",
-    "gill-attachment": "f",
-    "gill-spacing": "c",
-    "gill-size": "b",
-    "gill-color": "k",
-    "stalk-shape": "e",
-    "stalk-root": "e",
-    "stalk-surface-above-ring": "s",
-    "stalk-surface-below-ring": "s",
-    "stalk-color-above-ring": "w",
-    "stalk-color-below-ring": "w",
-    "veil-type": "p",
-    "veil-color": "w",
-    "ring-number": "o",
-    "ring-type": "p",
-    "spore-print-color": "k",
-    population: "s",
-    habitat: "u",
-  };
-
-  const [sample, setSample] = useState<typeof initialSample>(initialSample);
+  const model = React.useContext(BrainModelContext);
 
   useEffect(() => {
-    async function init() {
-      try {
-        const samples: EncodedSample[] = await loadMushroomData(
-          "/dataset/agaricus-lepiota.data"
-        );
-
-        const neuralNet = new NeuralNetwork();
-        neuralNet.train(samples, {
-          iterations: 2000,
-          errorThresh: 0.005,
-          log: true,
-        });
-
-        setNet(neuralNet);
-        setStatus("Model trained successfully ✅");
-      } catch (e) {
-        console.error(e);
-        setStatus("Failed to load dataset ⛔");
-      }
+    if (model?.status) {
+      toast(model.status, { id: "status-toast" });
     }
-
-    init();
-  }, []);
-
-  useEffect(() => {
-    if (status) {
-      toast(status, { id: "status-toast" });
-    }
-  }, [status]);
+  }, [model?.status]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -103,60 +65,58 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (net) {
-      const prediction = net.run(translateSample(sample));
-      if (
-        typeof prediction === "object" &&
-        prediction !== null &&
-        "edible" in prediction &&
-        "poisonous" in prediction
-      ) {
-        setResult({
-          edible: prediction.edible,
-          poisonous: prediction.poisonous,
-        });
-      } else if (Array.isArray(prediction)) {
-        setResult({
-          edible: prediction[0],
-          poisonous: prediction[1],
-        });
-      } else {
-        setResult(null);
-      }
+    if (model?.net && model?.predict) {
+      const translated = translateSample(sample);
+      setResult(model.predict(translated));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sample, net]);
+  }, [sample, model]);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "2rem",
+        textAlign: "center",
+        height: "100%",
+        margin: "0 auto",
+        boxSizing: "border-box",
+      }}
+    >
+      <Header />
+      <div style={{ display: "flex", flexDirection: "row", gap: "8px" }}>
+        {model?.net && (
+          <Features
+            keys={featureKeys}
+            options={featureOptions}
+            sample={sample}
+            handleInputChange={handleInputChange}
+          />
+        )}
+        <Prediction result={result} />
+      </div>
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  const BrainModelProvider = React.lazy(() =>
+    import("./hooks/BrainModelProvider").then((module) => ({
+      default: module.BrainModelProvider,
+    }))
+  );
 
   return (
     <div style={{ width: "100%", height: "100%" }}>
       <Toaster position="bottom-right" />
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: "2rem",
-          textAlign: "center",
-          height: "100%",
-          margin: "0 auto",
-          boxSizing: "border-box",
-        }}
-      >
-        <Header />
-        <div style={{ display: "flex", flexDirection: "row", gap: "8px" }}>
-          {net && (
-            <Features
-              keys={featureKeys}
-              options={featureOptions}
-              sample={sample}
-              handleInputChange={handleInputChange}
-            />
-          )}
-          <Prediction result={result} />
-        </div>
-      </div>
+      <Suspense fallback={<div>Loading model...</div>}>
+        <BrainModelProvider>
+          <AppContent />
+        </BrainModelProvider>
+      </Suspense>
     </div>
   );
 };
